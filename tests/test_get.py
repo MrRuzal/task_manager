@@ -140,3 +140,17 @@ async def test__get_task_or_raise_database_error(mock_db):
     mock_db.execute.side_effect = SQLAlchemyError("Database error")
     with pytest.raises(SQLAlchemyError):
         await TaskService._get_task_or_raise(mock_db, task_id)
+
+
+@pytest.mark.asyncio
+async def test__get_task_or_raise_uuid_instance(mock_db, sample_task):
+    """Тест обработки объекта UUID напрямую"""
+    task_id = sample_task.id
+    mock_result = make_mock_result([sample_task])
+    mock_db.execute.return_value = mock_result
+
+    task = await TaskService._get_task_or_raise(mock_db, task_id)
+
+    assert task.id == sample_task.id
+    assert task.status == sample_task.status
+    mock_db.execute.assert_called_once()
