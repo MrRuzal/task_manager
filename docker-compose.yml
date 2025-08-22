@@ -30,6 +30,7 @@ services:
       db:
         condition: service_healthy
     restart: always
+    entrypoint: ["/bin/sh", "-c", "chmod +x /app/entrypoint.sh && /app/entrypoint.sh"]
 
 volumes:
   postgres_data:
