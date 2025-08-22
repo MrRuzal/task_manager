@@ -8,14 +8,11 @@ from sqlalchemy.orm import declarative_base
 from .config import settings
 from app.common.logs import logger
 from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy import text
 
 engine = create_async_engine(
     settings.DATABASE_URL,
     future=True,
-    pool_size=10,
-    max_overflow=20,
-    pool_timeout=30,
-    pool_recycle=1800,
     echo=getattr(settings, "DB_ECHO", False),
 )
 
@@ -26,6 +23,7 @@ SessionLocal = async_sessionmaker(
     expire_on_commit=False,
     class_=AsyncSession,
 )
+
 Base = declarative_base()
 
 
@@ -41,7 +39,7 @@ async def shutdown():
 async def check_db_connection() -> bool:
     try:
         async with engine.connect() as conn:
-            await conn.execute("SELECT 1")
+            await conn.execute(text("SELECT 1"))
         return True
     except Exception:
         return False

@@ -1,3 +1,6 @@
+from typing import List
+from uuid import UUID
+
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import SQLAlchemyError, IntegrityError
 from sqlalchemy.future import select
@@ -10,9 +13,16 @@ from app.schemas import TaskCreate, TaskUpdate
 
 class TaskService:
     @staticmethod
-    async def _get_task_or_raise(db: AsyncSession, task_id):
+    async def _get_task_or_raise(db: AsyncSession, task_id: str) -> Task:
         try:
-            result = await db.execute(select(Task).filter(Task.id == task_id))
+            task_uuid = UUID(task_id)
+        except ValueError as e:
+            logger.error(f"Invalid UUID format for task_id {task_id}: {e}")
+            raise TaskNotFoundError(f"Task with id {task_id} not found") from e
+        try:
+            result = await db.execute(
+                select(Task).filter(Task.id == task_uuid)
+            )
             task = result.scalars().first()
             if not task:
                 raise TaskNotFoundError(f"Task with id {task_id} not found")
@@ -22,7 +32,7 @@ class TaskService:
             raise
 
     @staticmethod
-    async def get_tasks(db: AsyncSession):
+    async def get_tasks(db: AsyncSession) -> List[Task]:
         try:
             result = await db.execute(select(Task))
             return result.scalars().all()
@@ -31,12 +41,8 @@ class TaskService:
             raise
 
     @staticmethod
-    async def get_task(db: AsyncSession, task_id):
-        try:
-            return await TaskService._get_task_or_raise(db, task_id)
-        except SQLAlchemyError as e:
-            logger.error(f"Database error on get_task: {e}")
-            raise
+    async def get_task(db: AsyncSession, task_id: str) -> Task:
+        return await TaskService._get_task_or_raise(db, task_id)
 
     @staticmethod
     async def create_task(db: AsyncSession, task_create: TaskCreate) -> Task:
@@ -58,7 +64,9 @@ class TaskService:
             raise
 
     @staticmethod
-    async def update_task(db: AsyncSession, task_id, task_update: TaskUpdate):
+    async def update_task(
+        db: AsyncSession, task_id: str, task_update: TaskUpdate
+    ) -> Task:
         try:
             task = await TaskService._get_task_or_raise(db, task_id)
             for key, value in task_update.model_dump(
@@ -78,12 +86,15 @@ class TaskService:
             raise
 
     @staticmethod
-    async def delete_task(db: AsyncSession, task_id):
+    async def delete_task(db: AsyncSession, task_id: str) -> UUID:
         try:
             task = await TaskService._get_task_or_raise(db, task_id)
             await db.delete(task)
             await db.commit()
-            return task
+            return task.id
+        except TaskNotFoundError:
+            logger.error(f"Task with id {task_id} not found for deletion")
+            raise
         except SQLAlchemyError as e:
             await db.rollback()
             logger.error(f"Database error on delete_task: {e}")
