@@ -15,7 +15,10 @@ class TaskService:
     @staticmethod
     async def _get_task_or_raise(db: AsyncSession, task_id: str) -> Task:
         try:
-            task_uuid = UUID(task_id)
+            if not isinstance(task_id, UUID):
+                task_uuid = UUID(task_id)
+            else:
+                task_uuid = task_id
         except ValueError as e:
             logger.error(f"Invalid UUID format for task_id {task_id}: {e}")
             raise TaskNotFoundError(f"Task with id {task_id} not found") from e
